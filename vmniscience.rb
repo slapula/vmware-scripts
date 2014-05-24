@@ -33,32 +33,38 @@ end
 # Collects data from Clusters
 # ---------------------------------
 
-rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-	foldlist = list_folders(dc.hostFolder)
-	foldlist.each do |hostlist|
-		redis.select(1)
-		redis.set "#{hostlist.name}", "#{hostlist.summary.overallStatus}", "#{hostlist.summary.numHosts}", "#{hostlist.summary.numEffectiveHosts}", "#{hostlist.summary.totalCpu}", "#{hostlist.summary.effectiveCpu}", "#{hostlist.summary.totalMemory}", "#{hostlist.summary.effectiveMemory}"
-		
+def collectClusters(rf, db)
+	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
+		foldlist = list_folders(dc.hostFolder)
+		foldlist.each do |hostlist|
+			db.select(1)
+			db.hmset("#{hostlist.name}", "#{hostlist.summary.overallStatus}", "#{hostlist.summary.numHosts}", "#{hostlist.summary.numEffectiveHosts}", "#{hostlist.summary.totalCpu}", "#{hostlist.summary.effectiveCpu}", "#{hostlist.summary.totalMemory}", "#{hostlist.summary.effectiveMemory}")
+		end
 	end
 end
+
+collectClusters(rootFolder, redis)
 
 # ---------------------------------
 # Collects data from individual VMs 
 # ---------------------------------
 
-rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-	foldlist = list_folders(dc.vmFolder)
-	foldlist.each do |vmlist|
-		redis.select(2)
-		redis.set "#{vmlist.name}", "#{vmlist.summary.overallStatus}", "#{vmlist.summary.quickStats.uptimeSeconds}", "#{vmlist.summary.config.numCpu}", "#{vmlist.summary.quickStats.overallCpuUsage}", "#{vmlist.summary.config.memorySizeMB}", "#{vmlist.summary.quickStats.guestMemoryUsage}"
+def collectVMs(rf, db)
+	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
+		foldlist = list_folders(dc.vmFolder)
+		foldlist.each do |vmlist|
+			db.select(2)
+			db.hmset("#{vmlist.name}", "#{vmlist.summary.overallStatus}", "#{vmlist.summary.quickStats.uptimeSeconds}", "#{vmlist.summary.config.numCpu}", "#{vmlist.summary.quickStats.overallCpuUsage}", "#{vmlist.summary.config.memorySizeMB}", "#{vmlist.summary.quickStats.guestMemoryUsage}")
+		end
 	end
 end
 
+#collectVMs(rootFolder, redis)
 
 # -----------------
 # Close Connections
 # -----------------
 
 puts "Update complete\n"
-redis.close
+redis.quit
 test.close
