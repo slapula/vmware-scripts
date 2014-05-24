@@ -2,34 +2,21 @@
 require 'rbvmomi'
 require 'redis'
 
+puts "Updating database...\n"
+
+# -----------------------------------
+# Essential Connections & Definitions
+# -----------------------------------
+
 test = RbVmomi::VIM.connect :host => 'localhost', :port => '14443', :user => '***REMOVED***', :password => '***REMOVED***', :insecure => true
 rootFolder = test.serviceInstance.content.rootFolder
-dc = rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).find { |x| x.name == "TEST" } or fail "datacenter not found"
-host = dc.hostFolder.children.first.host.first
 
-# ---------------------------------
-# Collects data from Vcenter server
-# ---------------------------------
+redis = Redis.new
 
+# -------
+# Methods
+# -------
 
-puts host.hardware.memorySize
-puts host.hardware.cpuInfo.numCpuCores
-puts host.summary.runtime.powerState
-puts host.summary.quickStats.overallMemoryUsage
-puts host.summary.quickStats.overallCpuUsage
-puts host.summary.config.name
-
-puts host.summary.config.product.fullName
-puts host.summary.config.product.apiType
-puts host.summary.config.product.apiVersion
-puts host.summary.config.product.osType
-puts host.summary.config.product.productLineId
-puts host.summary.config.product.vendor
-puts host.summary.config.product.version
-
-# ---------------------------------
-# Collects data from individual VMs 
-# ---------------------------------
 def list_folders(df)
 	vms = []
       	df.childEntity.each do |object|
@@ -42,13 +29,36 @@ def list_folders(df)
 	vms
 end
 
-vm = {}
+# ---------------------------------
+# Collects data from Clusters
+# ---------------------------------
+
+rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
+	foldlist = list_folders(dc.hostFolder)
+	foldlist.each do |hostlist|
+		redis.select(1)
+		redis.set "#{hostlist.name}", "#{hostlist.summary.overallStatus}", "#{vmlist.summary.numHosts}", "#{vmlist.summary.numEffectiveHosts}", "#{vmlist.summary.totalCpu}", "#{vmlist.summary.effectiveCpu}", "#{vmlist.summary.totalMemory}", "#{vmlist.summary.effectiveMemory}"
+		
+	end
+end
+
+# ---------------------------------
+# Collects data from individual VMs 
+# ---------------------------------
+
 rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
 	foldlist = list_folders(dc.vmFolder)
 	foldlist.each do |vmlist|
-		puts "#{vmlist.name} up for " + "#{vmlist.summary.quickStats.uptimeSeconds} seconds"
+		redis.select(2)
+		redis.set "#{vmlist.name}", "#{vmlist.summary.overallStatus}", "#{vmlist.summary.quickStats.uptimeSeconds}", "#{vmlist.summary.config.numCpu}", "#{vmlist.summary.quickStats.overallCpuUsage}", "#{vmlist.summary.config.memorySizeMB}", "#{vmlist.summary.quickStats.guestMemoryUsage}",
 	end
-	break if [:datastore]
 end
-vm
 
+
+# -----------------
+# Close Connections
+# -----------------
+
+puts "Update complete\n"
+redis.close
+test.close
