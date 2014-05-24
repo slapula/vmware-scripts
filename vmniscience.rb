@@ -37,7 +37,7 @@ rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
 	foldlist = list_folders(dc.hostFolder)
 	foldlist.each do |hostlist|
 		redis.select(1)
-		redis.set "#{hostlist.name}", "#{hostlist.summary.overallStatus}", "#{vmlist.summary.numHosts}", "#{vmlist.summary.numEffectiveHosts}", "#{vmlist.summary.totalCpu}", "#{vmlist.summary.effectiveCpu}", "#{vmlist.summary.totalMemory}", "#{vmlist.summary.effectiveMemory}"
+		redis.set "#{hostlist.name}", "#{hostlist.summary.overallStatus}", "#{hostlist.summary.numHosts}", "#{hostlist.summary.numEffectiveHosts}", "#{hostlist.summary.totalCpu}", "#{hostlist.summary.effectiveCpu}", "#{hostlist.summary.totalMemory}", "#{hostlist.summary.effectiveMemory}"
 		
 	end
 end
@@ -50,7 +50,7 @@ rootFolder.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
 	foldlist = list_folders(dc.vmFolder)
 	foldlist.each do |vmlist|
 		redis.select(2)
-		redis.set "#{vmlist.name}", "#{vmlist.summary.overallStatus}", "#{vmlist.summary.quickStats.uptimeSeconds}", "#{vmlist.summary.config.numCpu}", "#{vmlist.summary.quickStats.overallCpuUsage}", "#{vmlist.summary.config.memorySizeMB}", "#{vmlist.summary.quickStats.guestMemoryUsage}",
+		redis.set "#{vmlist.name}", "#{vmlist.summary.overallStatus}", "#{vmlist.summary.quickStats.uptimeSeconds}", "#{vmlist.summary.config.numCpu}", "#{vmlist.summary.quickStats.overallCpuUsage}", "#{vmlist.summary.config.memorySizeMB}", "#{vmlist.summary.quickStats.guestMemoryUsage}"
 	end
 end
 
