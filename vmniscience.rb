@@ -3,6 +3,10 @@ require 'rbvmomi'
 require 'redis'
 require 'ruby-progressbar'
 
+# --------------------------------------
+# Vmniscience is Omniscience for VMware!
+# --------------------------------------
+
 puts "Updating database...\n"
 
 # -----------------------------------
@@ -18,17 +22,21 @@ redis = Redis.new
 # Methods
 # -------
 
-def list_folders(df)
-	vms = []
-      	df.childEntity.each do |object|
-        	if object.class.to_s == 'Folder'
-          		vms += list_folders(object)
-        	else
-          		vms << object
-        	end
-      	end      	
-	vms
-end
+def counter(dc, folder)
+	count = 0
+	if folder == "h"	
+		dc.hostFolder.childEntity.each do |cluster|
+			count += cluster.host.count
+		end
+	elsif folder == "v"
+		dc.vmFolder.childEntity.each do |x|
+			count += x.childEntity.count 
+		end
+	elsif folder == "c"
+		count += dc.hostFolder.childEntity.count
+	end
+	count
+end	
 
 # ---------------------------------
 # Collects data from Clusters
@@ -36,18 +44,17 @@ end
 
 def collectClusters(rf, db)
 	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-		foldlist = list_folders(dc.hostFolder)
 		progressbar = ProgressBar.create(:title => "Clusters", :format => '%t |%b>>%i| %p%% %a')
-		progressbar.total = foldlist.count
-		foldlist.each do |hostlist|
+		progressbar.total = counter(dc, "c")
+		dc.hostFolder.childEntity.each do |cluster|
 			db.select(1)
-			db.hset("#{hostlist.name}", "Status", "#{hostlist.summary.overallStatus}")  
-			db.hset("#{hostlist.name}", "NumberHosts", "#{hostlist.summary.numHosts}")
-			db.hset("#{hostlist.name}", "EffectiveHosts", "#{hostlist.summary.numEffectiveHosts}") 
-			db.hset("#{hostlist.name}", "CPUtotal", "#{hostlist.summary.totalCpu}")
-			db.hset("#{hostlist.name}", "EffectiveCPU", "#{hostlist.summary.effectiveCpu}")
-			db.hset("#{hostlist.name}", "MemTotal", "#{hostlist.summary.totalMemory}")
-			db.hset("#{hostlist.name}", "EffectiveMem", "#{hostlist.summary.effectiveMemory}")
+			db.hset("#{cluster.name}", "Status", "#{cluster.summary.overallStatus}")  
+			db.hset("#{cluster.name}", "NumberHosts", "#{cluster.summary.numHosts}")
+			db.hset("#{cluster.name}", "EffectiveHosts", "#{cluster.summary.numEffectiveHosts}") 
+			db.hset("#{cluster.name}", "CPUtotal", "#{cluster.summary.totalCpu}")
+			db.hset("#{cluster.name}", "EffectiveCPU", "#{cluster.summary.effectiveCpu}")
+			db.hset("#{cluster.name}", "MemTotal", "#{cluster.summary.totalMemory}")
+			db.hset("#{cluster.name}", "EffectiveMem", "#{cluster.summary.effectiveMemory}")
 			progressbar.increment
 		end
 	end
@@ -61,12 +68,8 @@ end
 
 def collectHosts(rf, db)
 	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-		count = 0
-		dc.hostFolder.childEntity.each do |cluster|
-			count += cluster.host.count
-		end
 		progressbar = ProgressBar.create(:title => "Hosts", :format => '%t |%b>>%i| %p%% %a')
-		progressbar.total = count
+		progressbar.total = counter(dc, "h")
 		dc.hostFolder.childEntity.each do |cluster|
 			cluster.host.each do |host|
 				db.select(2)
@@ -82,7 +85,7 @@ def collectHosts(rf, db)
 	end
 end
 
-collectHosts(rootFolder, redis)
+#collectHosts(rootFolder, redis)
 
 # ---------------------------------
 # Collects data from individual VMs 
@@ -90,23 +93,25 @@ collectHosts(rootFolder, redis)
 
 def collectVMs(rf, db)
 	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-		foldlist = list_folders(dc.vmFolder)
 		progressbar = ProgressBar.create(:title => "VMs", :format => '%t |%b>>%i| %p%% %a')
-		progressbar.total = foldlist.count
-		foldlist.each do |vmlist|
-			db.select(3)
-			db.hset("#{vmlist.name}", "Status", "#{vmlist.summary.overallStatus}")
-			db.hset("#{vmlist.name}", "Uptime", "#{vmlist.summary.quickStats.uptimeSeconds}")
-			db.hset("#{vmlist.name}", "CPUusage", "#{vmlist.summary.quickStats.overallCpuUsage}")
-			db.hset("#{vmlist.name}", "CPUnum", "#{vmlist.summary.config.numCpu}")
-			db.hset("#{vmlist.name}", "MemUsage", "#{vmlist.summary.quickStats.guestMemoryUsage}")
-			db.hset("#{vmlist.name}", "MemTotal", "#{vmlist.summary.config.memorySizeMB}")
-			progressbar.increment
+		progressbar.total = counter(dc, "v")
+		dc.vmFolder.childEntity.each do |folder|
+			folder.childEntity.each do |vmlist|
+				next if vmlist.class.to_s == "Folder"
+				db.select(3)
+				db.hset("#{vmlist.name}", "Status", "#{vmlist.summary.overallStatus}")
+				db.hset("#{vmlist.name}", "Uptime", "#{vmlist.summary.quickStats.uptimeSeconds}")
+				db.hset("#{vmlist.name}", "CPUusage", "#{vmlist.summary.quickStats.overallCpuUsage}")
+				db.hset("#{vmlist.name}", "CPUnum", "#{vmlist.summary.config.numCpu}")
+				db.hset("#{vmlist.name}", "MemUsage", "#{vmlist.summary.quickStats.guestMemoryUsage}")
+				db.hset("#{vmlist.name}", "MemTotal", "#{vmlist.summary.config.memorySizeMB}")
+				progressbar.increment
+			end
 		end
 	end
 end
 
-#collectVMs(rootFolder, redis)
+collectVMs(rootFolder, redis)
 
 # -----------------
 # Close Connections
