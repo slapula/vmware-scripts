@@ -28,11 +28,11 @@ redis = Redis.new
 def collectVMs(rf, db)
 	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
 		progressbar = ProgressBar.create(:title => "#{single_folder}", :format => '%t |%b>>%i| %p%% %a')
-		count = 0
+		counter = 0
 		dc.vmFolder.childEntity.each do |x|
-			count += x.childEntity.count 
+			counter += x.childEntity.count 
 		end
-		progressbar.total = count
+		progressbar.total = counter
 		dc.vmFolder.childEntity.each do { |folder| folder.name == "#{single_folder}" }
 			folder.childEntity.each do |vmlist|
 				next if vmlist.class.to_s == "Folder"
