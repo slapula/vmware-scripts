@@ -1,14 +1,13 @@
 #!/usr/bin/env ruby
 require 'rbvmomi'
 require 'redis'
-require 'ruby-progressbar'
 
 # --------------------------------------
 # Vmniscience is Omniscience for VMware!
 # --------------------------------------
 
 puts "Which VM would you like to get data from? "
-single_vm = gets
+$single_vm = gets.chomp
 
 puts "Updating database...\n"
 
@@ -27,19 +26,17 @@ redis = Redis.new
 
 def collectVMs(rf, db)
 	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-		progressbar = ProgressBar.create(:title => "#{singel_vm}", :format => '%t |%b>>%i| %p%% %a')
-		progressbar.total = 1
 		dc.vmFolder.childEntity.each do |folder|
-			folder.childEntity.each do { |vmlist| vmlist.name == "#{singel_vm}" }
-				next if vmlist.class.to_s == "Folder"
+			if folder.childEntity.find { |x| x.name == "#{$single_vm}" }
+				y = folder.childEntity.find { |x| x.name == "#{$single_vm}" }
 				db.select(3)
-				db.hset("#{vmlist.name}", "Status", "#{vmlist.summary.overallStatus}")
-				db.hset("#{vmlist.name}", "Uptime", "#{vmlist.summary.quickStats.uptimeSeconds}")
-				db.hset("#{vmlist.name}", "CPUusage", "#{vmlist.summary.quickStats.overallCpuUsage}")
-				db.hset("#{vmlist.name}", "CPUnum", "#{vmlist.summary.config.numCpu}")
-				db.hset("#{vmlist.name}", "MemUsage", "#{vmlist.summary.quickStats.guestMemoryUsage}")
-				db.hset("#{vmlist.name}", "MemTotal", "#{vmlist.summary.config.memorySizeMB}")
-				progressbar.increment
+				db.hset("#{y.name}", "Status", "#{y.summary.overallStatus}")
+				db.hset("#{y.name}", "Uptime", "#{y.summary.quickStats.uptimeSeconds}")
+				db.hset("#{y.name}", "CPUusage", "#{y.summary.quickStats.overallCpuUsage}")
+				db.hset("#{y.name}", "CPUnum", "#{y.summary.config.numCpu}")
+				db.hset("#{y.name}", "MemUsage", "#{y.summary.quickStats.guestMemoryUsage}")
+				db.hset("#{y.name}", "MemTotal", "#{y.summary.config.memorySizeMB}")
+				break
 			end
 		end
 	end

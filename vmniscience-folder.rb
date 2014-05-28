@@ -8,7 +8,7 @@ require 'ruby-progressbar'
 # --------------------------------------
 
 puts "Which VM folder would you like to get data from? "
-single_folder = gets
+$single_folder = gets.chomp
 
 puts "Updating database...\n"
 
@@ -27,15 +27,11 @@ redis = Redis.new
 
 def collectVMs(rf, db)
 	rf.childEntity.grep(RbVmomi::VIM::Datacenter).each do |dc|
-		progressbar = ProgressBar.create(:title => "#{single_folder}", :format => '%t |%b>>%i| %p%% %a')
-		counter = 0
-		dc.vmFolder.childEntity.each do |x|
-			counter += x.childEntity.count 
-		end
-		progressbar.total = counter
-		dc.vmFolder.childEntity.each do { |folder| folder.name == "#{single_folder}" }
+		progressbar = ProgressBar.create(:title => "#{$single_folder}", :format => '%t |%b>>%i| %p%% %a')
+		if dc.vmFolder.childEntity.find { |x| x.name == "#{$single_folder}" }
+			folder = dc.vmFolder.childEntity.find { |x| x.name == "#{$single_folder}" }
+			progressbar.total = folder.childEntity.length
 			folder.childEntity.each do |vmlist|
-				next if vmlist.class.to_s == "Folder"
 				db.select(3)
 				db.hset("#{vmlist.name}", "Status", "#{vmlist.summary.overallStatus}")
 				db.hset("#{vmlist.name}", "Uptime", "#{vmlist.summary.quickStats.uptimeSeconds}")
