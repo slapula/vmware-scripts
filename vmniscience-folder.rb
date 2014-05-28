@@ -16,7 +16,7 @@ puts "Updating database...\n"
 # Essential Connections & Definitions
 # -----------------------------------
 
-test = RbVmomi::VIM.connect :host => 'localhost', :port => '14443', :user => '***REMOVED***', :password => '***REMOVED***', :insecure => true
+test = RbVmomi::VIM.connect :host => 'localhost', :port => '14443', :user => '**', :password => '***', :insecure => true
 rootFolder = test.serviceInstance.content.rootFolder
 
 redis = Redis.new
